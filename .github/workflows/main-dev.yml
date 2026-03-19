@@ -1,0 +1,53 @@
+name: Deploy Wilton Backend lightsail
+
+on:
+  push:
+    branches:
+      - main  # Deploy on push to the main branch
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          
+      - name: Set up Node.js v20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.10.0
+
+      - name: Install dependencies
+        run: yarn
+        env:
+          CI: false  # Set CI environment variable here
+
+      - name: Build
+        run: yarn build
+
+      - name: Deploy to Lightsail
+        uses: appleboy/scp-action@v0.1.4
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USERNAME }}
+          password: ${{ secrets.SSH_PASSWORD }}
+          source: "dist"
+          target: /home/sattvabit/wilton-backend/dist
+          rm: true
+          strip_components: 1
+
+      - name: Restart api server
+        uses: appleboy/ssh-action@v0.1.10
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USERNAME }}
+          password: ${{ secrets.SSH_PASSWORD }}
+          script: |
+            cd wilton-backend
+            git pull --ff-only
+            yarn --no-save
+            yarn migration:run
+            pm2 restart all

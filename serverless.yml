@@ -1,0 +1,79 @@
+service: wilton-backend
+
+custom:
+  stage: ${opt:stage, sls:stage}
+  sharedBucketName: wilton-backend-${self:custom.stage}
+  basename: ${self:service}-${self:custom.stage}
+  logRetentionInDays:
+    default: 3
+    dev: 7
+    staging: 14
+    production: 30
+  memorySize:
+    default: 128
+    dev: 256
+    staging: 256
+    production: 512
+  prune:
+    automatic: true
+    number: 3
+  export-env:
+    filename: .env
+    overwrite: true
+    enableOffline: true
+  serverless-offline:
+    httpPort: 3000
+    lambdaPort: 4000
+    noPrependStageInUrl: true
+
+provider:
+  name: aws
+  runtime: nodejs16.x
+  region: us-west-1 # Default region to be used. Default is "us-east-1"
+  stackName: Wilton-App-Backend-API-${self:custom.stage} # Use a custom name for the CloudFormation stack
+  memorySize: ${self:custom.memorySize.${self:custom.stage}, self:custom.memorySize.default} # Overwrite the default memory size. Default is 1024
+  timeout: 30 # The default is 6 seconds. Note: API Gateway current maximum is 30 seconds
+  logRetentionInDays: ${self:custom.logRetentionInDays.${self:custom.stage}, self:custom.logRetentionInDays.default} # Set the default RetentionInDays for a CloudWatch LogGroup
+  environment:
+    STAGE: ${self:custom.stage}
+  tags:
+    resource-for: Wilton-App-Backend-${self:custom.stage}
+    owner: Wilton-App
+    terraform: false
+    provisioner: Serverless
+    github-repository: wilton-backend
+    project: Wilton-App
+  deploymentBucket:
+    name: ${self:custom.sharedBucketName}
+  lambdaHashingVersion: 20201221
+  endpointType: regional
+
+  apiGateway:
+    restApiId: lfemmo302b # Replace this REST API ID with DEV / STAGE / PROD envoirnment in envoirnment Which You are working
+    restApiRootResourceId: tf06ts8p4b # Replace this REST API ID with DEV / STAGE / PROD envoirnment in envoirnment Which You are working
+    description: Wilton App Dev API Gateway
+
+plugins:
+  - serverless-plugin-typescript
+  - serverless-offline
+  - serverless-dotenv-plugin
+  - serverless-plugin-optimize
+  - serverless-deployment-bucket
+
+package:
+  individually: true # Enables individual packaging for each function. If true you must provide package for each function. Defaults to false
+  patterns:
+    - dist/**
+
+functions:
+  main:
+    name: Wilton-App-Backend-${self:custom.stage}
+    description: Wilton App Function
+    handler: src/lambda.handler # The name of the lambda function  # The module 'handler' is exported in the file 'src/lambda'
+    events:
+      - http:
+          path: '/'
+          method: any
+      - http:
+          path: '{proxy+}'
+          method: any
